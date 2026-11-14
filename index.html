@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>मेरी दुकान</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f3f3f3;--card:#fff;--tx:#0f1111;--mu:#565959;--nav:#131921;--ac:#ffa41c;--ac2:#f08804;--bd:#ddd}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1214;--card:#1a1f23;--tx:#eee;--mu:#9aa;--bd:#333}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Noto Sans Devanagari",sans-serif}
+header{background:var(--nav);color:#fff;padding:10px 12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.row{display:flex;gap:8px;align-items:center}.row h1{font-size:18px;margin:0;flex:1}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 12px;background:var(--ac);color:#111}
+button.alt{background:#fff2;color:#fff}button.red{background:#c62828;color:#fff}
+input,select{font:inherit;width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx)}
+#q{margin-top:8px;border:2px solid var(--ac)}.chips{display:flex;gap:6px;overflow-x:auto;padding-top:8px}.chips button{white-space:nowrap;background:#fff2;color:#fff;padding:6px 10px}.chips button.on{background:var(--ac);color:#111}
+main{padding:12px;max-width:900px;margin:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.card{background:var(--card);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:1;object-fit:cover}.card div{padding:8px;display:flex;flex-direction:column;gap:6px;flex:1}
+.pr{font-size:18px;font-weight:700}.mu{color:var(--mu);font-size:13px}
+.box{background:var(--card);border-radius:10px;padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.hide{display:none}.li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd)}
+.li img{width:44px;height:44px;object-fit:cover;border-radius:6px}
+</style></head><body>
+<header><div class="row"><h1 id="sn">मेरी दुकान</h1>
+<button class="alt hide" id="admBtn">⚙️ मेरी सेटिंग</button><button class="alt" id="cartBtn">🛒 <span id="cc">0</span></button></div>
+<input id="q" placeholder="🔍 यहाँ कुछ भी खोजें"><div class="chips" id="cats"></div></header>
+<main>
+<p id="msg" class="mu"></p>
+<section id="shop"><div class="grid" id="grid"></div></section>
+<section id="cart" class="hide"><div class="box"><b>🛒 आपकी टोकरी</b><div id="cl"></div><div class="pr" id="tot"></div>
+<input id="cn" placeholder="आपका नाम"><input id="cp" placeholder="फ़ोन नंबर / पता">
+<button id="ord">✅ ऑर्डर करें</button></div></section>
+<section id="adm" class="hide">
+<div class="box"><b>दुकान का नाम</b><input id="sname"><button id="ssave">सेव करें</button></div>
+<div class="box"><b>📷 नई फ़ोटो बेचने के लिए डालें</b><input type="file" id="pf" accept="image/*"><select id="pc"></select><input id="pt" placeholder="नाम / शीर्षक"><input id="pp" type="number" inputmode="decimal" placeholder="कीमत (₹)"><button id="padd">➕ दुकान में जोड़ें</button></div>
+<div class="box"><b>आपके प्रोडक्ट</b><div id="pl"></div></div>
+<div class="box"><b>📦 ऑर्डर</b><div id="ol"></div></div><div class="box"><b>🙋 ग्राहक क्या माँग रहे हैं</b><div id="rl"></div></div>
+</section></main>
+<script>
+const $=id=>document.getElementById(id);let db,assets,uid,isAdmin=false,products=[],cart={},sid=0;
+const money=n=>"₹"+Number(n).toLocaleString("en-IN");
+function show(v){["shop","cart","adm"].forEach(s=>$(s).classList.toggle("hide",s!==v))}
+$("cartBtn").onclick=()=>{show("cart");drawCart()};$("sn").onclick=()=>show("shop");
+$("admBtn").onclick=()=>show("adm");const CATS=["सब","इलेक्ट्रॉनिक्स","कपड़े","घर और किचन","सुंदरता","खिलौने","किताबें","खाना","अन्य"];let cat="सब";
+$("pc").innerHTML=CATS.slice(1).map(c=>`<option>${c}</option>`).join("");
+function chips(){$("cats").innerHTML=CATS.map(c=>`<button class="${c===cat?"on":""}">${c}</button>`).join("");$("cats").querySelectorAll("button").forEach((b,i)=>b.onclick=()=>{cat=CATS[i];show("shop");chips();draw()})}chips();
+async function reqItem(){if(!uid)return alert("लॉग-इन करें");const t=prompt("आपको क्या चाहिए?",$("q").value);if(!t)return;const c=prompt("आपका फ़ोन नंबर");if(!c)return;try{await db.collection("requests").doc(uid).set({text:t,contact:c,at:Date.now()});alert("हमें बता दिया गया है, जल्दी मिलेगा 🙏")}catch(e){alert("नहीं भेज सका")}}
+$("q").oninput=()=>{show("shop");draw()};
+function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML}
+function draw(){const ws=$("q").value.toLowerCase().split(/\s+/).filter(Boolean);const l=products.filter(p=>(cat==="सब"||p.cat===cat)&&ws.every(w=>((p.title||"")+" "+(p.cat||"")).toLowerCase().includes(w)));
+$("grid").innerHTML=l.map(p=>`<div class="card"><img src="${p.url}" alt=""><div><span>${esc(p.title)}</span><span class="pr">${money(p.price)}</span><button data-a="${p.id}">टोकरी में डालें</button></div></div>`).join("");
+if(l.length)$("msg").textContent="";else if(!products.length)$("msg").textContent="अभी कोई सामान नहीं है";else{$("msg").innerHTML='जो चाहिए वो नहीं मिला? <button id="rq">📩 मुझे ये चाहिए</button>';$("rq").onclick=reqItem}
+$("grid").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{cart[b.dataset.a]=(cart[b.dataset.a]||0)+1;cc()});
+$("pl").innerHTML=products.map(p=>`<div class="li"><img src="${p.url}"><span style="flex:1">${esc(p.title)}<br><b>${money(p.price)}</b></span><button class="red" data-d="${p.id}">हटाएँ</button></div>`).join("")||'<span class="mu">कोई प्रोडक्ट नहीं</span>';
+$("pl").querySelectorAll("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("हटाएँ?"))await db.collection("products").doc(b.dataset.d).delete()})}
+function cc(){$("cc").textContent=Object.values(cart).reduce((a,b)=>a+b,0)}
+function drawCart(){let t=0;const ids=Object.keys(cart).filter(i=>products.find(p=>p.id===i));
+$("cl").innerHTML=ids.map(i=>{const p=products.find(x=>x.id===i);t+=p.price*cart[i];return `<div class="li"><img src="${p.url}"><span style="flex:1">${esc(p.title)} × ${cart[i]}</span><b>${money(p.price*cart[i])}</b></div>`}).join("")||'<span class="mu">टोकरी खाली है</span>';
+$("tot").textContent="कुल: "+money(t)}
+$("ord").onclick=async()=>{const items=Object.keys(cart).map(i=>{const p=products.find(x=>x.id===i);return p&&{title:p.title,price:p.price,qty:cart[i]}}).filter(Boolean);
+if(!uid)return alert("ऑर्डर के लिए लॉग-इन करें");if(!items.length||!$("cn").value||!$("cp").value)return alert("टोकरी, नाम और फ़ोन/पता भरें");
+try{await db.collection("orders").doc(uid).set({name:$("cn").value,contact:$("cp").value,items,total:items.reduce((a,x)=>a+x.price*x.qty,0),at:Date.now()});cart={};cc();drawCart();alert("ऑर्डर मिल गया! धन्यवाद 🙏")}catch(e){alert("ऑर्डर नहीं हो सका")}};
+$("padd").onclick=async()=>{const f=$("pf").files[0],t=$("pt").value.trim(),p=parseFloat($("pp").value);
+if(!f||!t||!(p>=0))return alert("फ़ोटो, नाम और कीमत डालें");$("padd").disabled=true;
+try{const a=await assets.upload(f);await db.collection("products").doc("p"+Date.now()).set({title:t,cat:$("pc").value,price:p,url:a.url,assetId:a.id,at:Date.now()});$("pf").value=$("pt").value=$("pp").value=""}catch(e){alert("अपलोड नहीं हुआ: "+(e.message||e.code))}$("padd").disabled=false};
+$("ssave").onclick=async()=>{try{await db.collection("settings").doc("shop").set({name:$("sname").value.trim()||"मेरी दुकान"});alert("सेव हो गया")}catch(e){alert("सेव नहीं हुआ")}};
+async function init(){
+try{const u=await claude.use("user");uid=u&&await u.id();isAdmin=!!(u&&u.canEdit());
+db=await claude.use("db");assets=await claude.use("assets")}catch(e){}
+if(!db){$("msg").textContent="दुकान लोड नहीं हो सकी — कृपया लॉग-इन करके खोलें।";return}
+if(isAdmin){$("admBtn").classList.remove("hide");
+db.collection("requests").onSnapshot(s=>{$("rl").innerHTML=s.docs.map(d=>d.data()).sort((a,b)=>b.at-a.at).map(o=>`<div class="li"><span>${esc(o.text)}<br><span class="mu">${esc(o.contact)}</span></span></div>`).join("")||'<span class="mu">अभी कोई माँग नहीं</span>'},()=>{});
+db.collection("orders").onSnapshot(s=>{$("ol").innerHTML=s.docs.map(d=>d.data()).sort((a,b)=>b.at-a.at).map(o=>`<div class="li"><span>${esc(o.name)} · ${esc(o.contact)}<br><span class="mu">${o.items.map(i=>esc(i.title)+"×"+i.qty).join(", ")}</span></span><b>${money(o.total)}</b></div>`).join("")||'<span class="mu">अभी कोई ऑर्डर नहीं</span>'},()=>{})}
+db.collection("settings").doc("shop").onSnapshot(s=>{const n=s.exists&&s.data().name;if(n){$("sn").textContent=n;document.title=n;$("sname").value=n}},()=>{});
+db.collection("products").onSnapshot(s=>{products=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.at-a.at);draw()},()=>{$("msg").textContent="लोड नहीं हो सका"})}
+claude.use?init():0;draw();
+</script></body></html>
